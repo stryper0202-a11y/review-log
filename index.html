@@ -4,115 +4,124 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>화장품 기록장</title>
-
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-firestore-compat.js"></script>
-
 <style>
-body { font-family: Arial; padding: 20px; max-width: 600px; margin: auto; }
-input, select { margin-bottom: 5px; display: block; width: 100%; padding: 5px; }
-button { margin-top: 10px; padding: 5px 10px; }
-#records { margin-top: 20px; }
-.record { border-bottom: 1px solid #ccc; padding: 5px 0; }
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+    input, select, button { display: block; margin: 10px 0; padding: 8px; width: 100%; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #f4f4f4; }
 </style>
 </head>
 <body>
-<h1>화장품 기록장</h1>
 
-<!-- 기존 입력 폼 -->
-<input type="text" id="name" placeholder="제품명">
-<select id="category">
-  <option value="스킨케어">스킨케어</option>
-  <option value="메이크업">메이크업</option>
-  <option value="헤어">헤어</option>
-</select>
-<input type="date" id="purchaseDate">
-<input type="number" id="price" placeholder="가격">
-<select id="rating">
-  <option value="1">★☆☆☆☆</option>
-  <option value="2">★★☆☆☆</option>
-  <option value="3">★★★☆☆</option>
-  <option value="4">★★★★☆</option>
-  <option value="5">★★★★★</option>
-</select>
-<input type="text" id="store" placeholder="구매처">
-<select id="repurchase">
-  <option value="예">예</option>
-  <option value="아니오">아니오</option>
-</select>
+<h2>화장품 기록장</h2>
 
-<button onclick="addRecord()">저장</button>
+<form id="productForm">
+    <input type="text" id="name" placeholder="제품명" required>
+    <input type="text" id="category" placeholder="제품 분류" required>
+    <input type="date" id="purchaseDate" placeholder="구매일" required>
+    <input type="number" id="price" placeholder="가격" required>
+    <input type="number" id="rating" placeholder="평점(1~5)" min="1" max="5" required>
+    <input type="text" id="store" placeholder="구매처">
+    <select id="repurchase">
+        <option value="">재구매 의사</option>
+        <option value="예">예</option>
+        <option value="아니오">아니오</option>
+    </select>
+    <button type="submit">저장</button>
+</form>
 
-<div id="records"></div>
+<table>
+    <thead>
+        <tr>
+            <th>제품명</th>
+            <th>분류</th>
+            <th>구매일</th>
+            <th>가격</th>
+            <th>평점</th>
+            <th>구매처</th>
+            <th>재구매</th>
+        </tr>
+    </thead>
+    <tbody id="productTable">
+    </tbody>
+</table>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
 
 <script>
-  // 🔹 Firebase 초기화
-  const firebaseConfig = {
+// Firebase 설정
+const firebaseConfig = {
     apiKey: "YOUR_API_KEY",
     authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
     projectId: "YOUR_PROJECT_ID",
-  };
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
 
-  // 🔹 기록 저장 + 기존 기능 유지
-  function addRecord() {
-    const record = {
-      name: document.getElementById('name').value,
-      category: document.getElementById('category').value,
-      purchaseDate: document.getElementById('purchaseDate').value,
-      price: parseInt(document.getElementById('price').value),
-      rating: parseInt(document.getElementById('rating').value),
-      store: document.getElementById('store').value,
-      repurchase: document.getElementById('repurchase').value,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+// 익명 로그인
+auth.signInAnonymously()
+.then(() => console.log("로그인 성공"))
+.catch(err => console.error("로그인 실패", err));
+
+// 데이터 저장
+document.getElementById('productForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const user = auth.currentUser;
+    if (!user) return alert("로그인 필요");
+
+    const data = {
+        name: document.getElementById('name').value,
+        category: document.getElementById('category').value,
+        purchaseDate: document.getElementById('purchaseDate').value,
+        price: Number(document.getElementById('price').value),
+        rating: Number(document.getElementById('rating').value),
+        store: document.getElementById('store').value,
+        repurchase: document.getElementById('repurchase').value,
+        uid: user.uid,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
     };
 
-    // Firebase에 저장
-    db.collection('cosmetics').add(record)
-      .then(() => {
-        alert("저장되었습니다!");
-        clearInputs();
-        loadRecords(); // 저장 후 기록 업데이트
-      })
-      .catch(error => console.error("저장 오류:", error));
-  }
+    await db.collection('products').add(data);
 
-  // 입력 필드 초기화 (기존 기능 유지)
-  function clearInputs() {
-    document.getElementById('name').value = '';
-    document.getElementById('category').value = '스킨케어';
-    document.getElementById('purchaseDate').value = '';
-    document.getElementById('price').value = '';
-    document.getElementById('rating').value = '1';
-    document.getElementById('store').value = '';
-    document.getElementById('repurchase').value = '예';
-  }
+    // 입력 필드 초기화
+    document.getElementById('productForm').reset();
+});
 
-  // 🔹 기록 불러오기 (Firebase + 기존 화면 표시)
-  function loadRecords() {
-    const container = document.getElementById('records');
-    container.innerHTML = '';
+// 실시간 테이블 표시
+auth.onAuthStateChanged(user => {
+    if (!user) return;
 
-    db.collection('cosmetics').orderBy('timestamp', 'desc').get()
-      .then(snapshot => {
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          const div = document.createElement('div');
-          div.className = 'record';
-          div.innerHTML = `
-            <strong>${data.name}</strong> (${data.category})<br>
-            구매일: ${data.purchaseDate}, 가격: ${data.price}원, 평점: ${data.rating}★<br>
-            구매처: ${data.store}, 재구매 의사: ${data.repurchase}
-          `;
-          container.appendChild(div);
-        });
+    db.collection('products')
+      .where('uid', '==', user.uid)
+      .orderBy('timestamp', 'desc')
+      .onSnapshot(snapshot => {
+          const table = document.getElementById('productTable');
+          table.innerHTML = '';
+          snapshot.forEach(doc => {
+              const p = doc.data();
+              const row = `<tr>
+                <td>${p.name}</td>
+                <td>${p.category}</td>
+                <td>${p.purchaseDate}</td>
+                <td>${p.price}</td>
+                <td>${p.rating}</td>
+                <td>${p.store}</td>
+                <td>${p.repurchase}</td>
+              </tr>`;
+              table.innerHTML += row;
+          });
       });
-  }
-
-  // 페이지 로드 시 기록 표시
-  loadRecords();
+});
 </script>
+
 </body>
 </html>
