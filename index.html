@@ -1,668 +1,101 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>구매 제품 기록장 — 분류 필터 정상화 버전</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>화장품 기록장</title>
+<script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-firestore-compat.js"></script>
 <style>
-  :root{--blue:#2563eb;--muted:#6b7280;--gap:12px;--radius:10px;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans KR",Arial;}
-  *{box-sizing:border-box}
-  body{margin:0;background:#f3f5fb;padding:20px;color:#111;}
-  .wrap{max-width:1100px;margin:0 auto;background:#fff;border-radius:14px;padding:18px;box-shadow:0 8px 30px rgba(8,15,40,0.06);} 
-  header{display:flex;align-items:center;gap:12px;margin-bottom:12px;} h1{font-size:18px;margin:0}
-  .toolbar{margin-left:auto;display:flex;gap:8px;align-items:center;} button{background:var(--blue);color:#fff;padding:8px 12px;border-radius:8px;border:0;cursor:pointer} button.ghost{background:#f3f4f6;color:#111;border:1px solid #e6e9f0} button.small{padding:6px 8px;font-size:13px}
-  .form-grid{display:grid;grid-template-columns:1fr 320px;gap:18px;}
-  .form-main{display:grid;gap:12px;grid-template-columns:repeat(12,1fr);align-items:start;}
-  label.field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#111;} input[type="text"],input[type="date"],input[type="number"],select,textarea{padding:10px;border-radius:8px;border:1px solid #e6e9f0;font-size:14px;background:#fff;min-height:40px;} textarea{min-height:120px;resize:vertical} .inline{display:flex;gap:8px;align-items:center} .muted{color:var(--muted);font-size:13px}
-  .c-12{grid-column:1 / -1} .cat-major{grid-column:1 / span 4} .cat-middle{grid-column:5 / span 4} .cat-minor{grid-column:9 / span 4}
-  .cat-block{display:flex;flex-direction:column;gap:8px} .add-btn{display:inline-block;padding:10px;border-radius:8px;border:1px dashed #e6eefc;background:#f8fbff;color:#123;text-align:center;cursor:pointer} .add-btn:hover{background:#eef6ff;border-color:#dbeeff}
-  .align-row{grid-column:1 / -1;display:grid;grid-template-columns:1fr 360px;gap:12px;align-items:center} .left-group{display:flex;flex-direction:column;gap:12px} .right-group{display:flex;flex-direction:column;gap:12px;align-items:stretch} .right-inner{display:flex;flex-direction:column;gap:12px;justify-content:center;height:100%}
-  .side-panel{border-left:1px dashed #eef2ff;padding-left:16px} .panel-block{background:#fbfdff;border-radius:10px;padding:12px;margin-bottom:12px;border:1px solid #eef4ff}
-  table{width:100%;border-collapse:collapse;margin-top:10px} th,td{padding:10px;border-bottom:1px solid #f1f3f8;text-align:left;font-size:13px;vertical-align:middle} th{background:#fbfcff;cursor:pointer} img.thumb{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #eee}
-  .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:none;align-items:center;justify-content:center;z-index:2000} .modal{background:#fff;border-radius:12px;padding:16px;max-width:920px;width:94%;max-height:86vh;overflow:auto;box-shadow:0 12px 40px rgba(2,6,23,0.4)}
-  .mgr-list{margin-top:12px;border:1px solid #eef4ff;padding:12px;border-radius:10px;max-height:56vh;overflow:auto} .maj,.mid,.min{display:flex;gap:8px;align-items:center;margin-bottom:6px} .maj strong{min-width:160px}.mid span{min-width:140px}.min span{min-width:120px} .tiny{padding:6px 8px;border-radius:8px;border:0;cursor:pointer} .danger{background:#fff5f5;color:#b91c1c;border:1px solid #fecaca}
-  .filters{display:flex;gap:10px;align-items:center;padding:10px;background:#fbfdff;border-radius:10px;border:1px solid #eef4ff;margin-top:10px}
-  @media(max-width:1000px){.form-grid{grid-template-columns:1fr}.side-panel{border-left:none;padding-left:0}.form-main{grid-template-columns:repeat(6,1fr)}.cat-major{grid-column:1 / span 6}.cat-middle{grid-column:1 / span 6}.cat-minor{grid-column:1 / span 6}.align-row{grid-template-columns:1fr}.right-inner{justify-content:flex-start}.add-btn{width:100%}.filters{flex-direction:column;align-items:stretch}.filters select{min-width:unset;width:100%}}
+body { font-family: Arial; padding: 20px; max-width: 500px; margin: auto; }
+input, select { margin-bottom: 5px; display: block; width: 100%; padding: 5px; }
+button { margin-top: 10px; padding: 5px 10px; }
+#records { margin-top: 20px; }
+.record { border-bottom: 1px solid #ccc; padding: 5px 0; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>구매 제품 기록장</h1>
-    <div class="toolbar">
-      <button id="openCategoryMgr" class="ghost small">분류 관리</button>
-      <button id="exportCSV" class="ghost small">CSV</button>
-      <button id="exportJSON" class="ghost small">JSON</button>
-      <button id="btnImport" class="ghost small">불러오기</button>
-      <button id="clearAll" class="ghost small">모두 삭제</button>
-    </div>
-  </header>
+<h1>화장품 기록장</h1>
 
-  <div class="form-grid">
-    <div>
-      <form id="productForm" onsubmit="return false;">
-        <div class="form-main">
-          <div class="c-12">
-            <label class="field">제품명
-              <input id="name" type="text" placeholder="예: ABC 세럼" required />
-            </label>
-          </div>
+<input type="text" id="name" placeholder="제품명">
+<select id="category">
+  <option value="스킨케어">스킨케어</option>
+  <option value="메이크업">메이크업</option>
+  <option value="헤어">헤어</option>
+</select>
+<input type="date" id="purchaseDate">
+<input type="number" id="price" placeholder="가격">
+<select id="rating">
+  <option value="1">★☆☆☆☆</option>
+  <option value="2">★★☆☆☆</option>
+  <option value="3">★★★☆☆</option>
+  <option value="4">★★★★☆</option>
+  <option value="5">★★★★★</option>
+</select>
+<input type="text" id="store" placeholder="구매처">
+<select id="repurchase">
+  <option value="예">예</option>
+  <option value="아니오">아니오</option>
+</select>
 
-          <div class="cat-major">
-            <div class="cat-block">
-              <label class="field">대분류
-                <select id="majorSelect" aria-label="대분류 선택"></select>
-              </label>
-              <button id="addMajor" class="add-btn" aria-label="대분류 추가" title="새 대분류 추가">+ 대분류 추가</button>
-            </div>
-          </div>
+<button onclick="addRecord()">저장</button>
 
-          <div class="cat-middle">
-            <div class="cat-block">
-              <label class="field">중분류
-                <select id="middleSelect" aria-label="중분류 선택"></select>
-              </label>
-              <button id="addMiddle" class="add-btn" aria-label="중분류 추가" title="선택된 대분류 아래에 새 중분류 추가">+ 중분류 추가</button>
-            </div>
-          </div>
-
-          <div class="cat-minor">
-            <div class="cat-block">
-              <label class="field">소분류
-                <select id="minorSelect" aria-label="소분류 선택"></select>
-              </label>
-              <button id="addMinor" class="add-btn" aria-label="소분류 추가" title="선택된 대분류·중분류 아래에 새 소분류 추가">+ 소분류 추가</button>
-            </div>
-          </div>
-
-          <div class="align-row">
-            <div class="left-group">
-              <label class="field">구매처
-                <input id="seller" type="text" placeholder="예: ABC몰" />
-              </label>
-              <label class="field">재구매 의사
-                <select id="repurchase">
-                  <option value="">선택</option>
-                  <option value="yes">예</option>
-                  <option value="maybe">고민</option>
-                  <option value="no">아니오</option>
-                </select>
-              </label>
-            </div>
-
-            <div class="right-group">
-              <div class="right-inner">
-                <label class="field">구매일
-                  <input id="purchaseDate" type="date" />
-                </label>
-                <label class="field">가격(원)
-                  <input id="price" type="number" min="0" step="1" placeholder="예: 12000" />
-                </label>
-                <label class="field">평점
-                  <select id="rating">
-                    <option value="">평점</option>
-                    <option>5</option><option>4</option><option>3</option><option>2</option><option>1</option>
-                  </select>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          <div class="c-12">
-            <label class="field">메모 <span class="note">(사용감, 유효기간, 주의사항 등)</span>
-              <textarea id="notes" placeholder="예: 부드럽고 흡수 빠름"></textarea>
-            </label>
-          </div>
-
-          <div class="c-6">
-            <label class="field">이미지 (선택)
-              <input id="image" type="file" accept="image/*" />
-            </label>
-          </div>
-
-          <div class="c-6">
-            <div style="display:flex;flex-direction:column;gap:8px">
-              <div class="muted">빠른 검색</div>
-              <input id="search" placeholder="제품명 / 구매처 / 메모 검색" />
-            </div>
-          </div>
-
-          <div class="c-12 form-actions">
-            <div style="margin-right:auto" class="muted">데이터는 브라우저(localStorage)에 저장됩니다. (백업 권장)</div>
-            <button id="reset" type="button" class="ghost small">초기화</button>
-            <button id="save" class="small">추가 / 저장</button>
-          </div>
-        </div>
-      </form>
-
-      <!-- 필터 바 -->
-      <div class="filters" id="filterBar" role="region" aria-label="분류 필터">
-        <div class="label">필터</div>
-        <select id="filterMajor"><option value="">모든 대분류</option></select>
-        <select id="filterMiddle"><option value="">모든 중분류</option></select>
-        <select id="filterMinor"><option value="">모든 소분류</option></select>
-        <div class="spacer"></div>
-        <button id="clearFilter" class="ghost small" title="필터 초기화">필터 초기화</button>
-      </div>
-
-      <div style="margin-top:8px">
-        <table id="productTable" aria-label="제품 목록">
-          <thead>
-            <tr>
-              <th data-key="name">제품명</th>
-              <th>분류</th>
-              <th data-key="purchaseDate">구매일</th>
-              <th data-key="price">가격</th>
-              <th data-key="rating">평점</th>
-              <th data-key="seller">구매처</th>
-              <th>재구매</th>
-              <th>이미지</th>
-              <th>작업</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-
-    <aside class="side-panel">
-      <div class="panel-block">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <strong>요약</strong>
-          <button id="syncNow" class="ghost small">동기화(수동)</button>
-        </div>
-        <div style="margin-top:8px;font-size:13px;color:var(--muted)">
-          항목 수: <span id="count">0</span><br/>
-          카테고리 수: <span id="catCount">0</span>
-        </div>
-      </div>
-
-      <div class="panel-block">
-        <strong>분류 빠른 작업</strong>
-        <div style="margin-top:8px;display:flex;gap:8px">
-          <input id="quickMajor" placeholder="새 대분류" style="flex:1;padding:8px;border-radius:8px;border:1px solid #e6e9f0" />
-          <button id="quickAddMajor" class="small">추가</button>
-        </div>
-        <div style="margin-top:10px">
-          <button id="openCategoryMgr2" class="ghost small" style="width:100%">분류 관리 열기</button>
-        </div>
-      </div>
-
-      <div class="panel-block">
-        <strong>도움말</strong>
-        <div style="margin-top:8px;font-size:13px;color:var(--muted)">
-          • 필터와 검색을 함께 사용하면 원하는 항목만 빠르게 골라볼 수 있습니다.<br/>
-          • 분류를 변경하면 필터 목록도 자동으로 업데이트됩니다.
-        </div>
-      </div>
-    </aside>
-  </div>
-</div>
-
-<!-- modal -->
-<div class="modal-backdrop" id="modalBackdrop" aria-hidden="true">
-  <div class="modal" role="dialog" aria-modal="true">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
-      <strong>분류 관리</strong>
-      <div style="margin-left:auto">
-        <button id="closeModal" class="ghost small">닫기</button>
-      </div>
-    </div>
-
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input id="mgrQuickMajor" placeholder="대분류 추가(빠른)" style="flex:1;padding:8px;border-radius:8px;border:1px solid #e6e9f0" />
-      <button id="mgrQuickAddMajor" class="small">추가</button>
-    </div>
-
-    <div class="mgr-list" id="mgrList" aria-live="polite"></div>
-  </div>
-</div>
+<div id="records"></div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-  const STORAGE_KEY = 'my_products_local_v2';
-  const CATEGORY_KEY = 'category_tree_v1';
+  // 🔹 Firebase 초기화
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
 
-  let products = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-  let categoryTree = JSON.parse(localStorage.getItem(CATEGORY_KEY) || '[]');
-
-  // DOM refs (안전하게 DOM ready 이후에 접근)
-  const nameEl = document.getElementById('name');
-  const majorEl = document.getElementById('majorSelect');
-  const middleEl = document.getElementById('middleSelect');
-  const minorEl = document.getElementById('minorSelect');
-  const purchaseDateEl = document.getElementById('purchaseDate');
-  const priceEl = document.getElementById('price');
-  const ratingEl = document.getElementById('rating');
-  const sellerEl = document.getElementById('seller');
-  const repurchaseEl = document.getElementById('repurchase');
-  const notesEl = document.getElementById('notes');
-  const imageEl = document.getElementById('image');
-  const saveBtn = document.getElementById('save');
-  const resetBtn = document.getElementById('reset');
-
-  const productTableBody = document.querySelector('#productTable tbody');
-  const countEl = document.getElementById('count');
-  const catCountEl = document.getElementById('catCount');
-
-  const searchEl = document.getElementById('search');
-  const quickMajor = document.getElementById('quickMajor');
-  const quickAddMajor = document.getElementById('quickAddMajor');
-
-  const addMajorBtn = document.getElementById('addMajor');
-  const addMiddleBtn = document.getElementById('addMiddle');
-  const addMinorBtn = document.getElementById('addMinor');
-
-  // filter elements
-  const filterMajor = document.getElementById('filterMajor');
-  const filterMiddle = document.getElementById('filterMiddle');
-  const filterMinor = document.getElementById('filterMinor');
-  const clearFilterBtn = document.getElementById('clearFilter');
-
-  const openCategoryMgr = document.getElementById('openCategoryMgr');
-  const openCategoryMgr2 = document.getElementById('openCategoryMgr2');
-  const modalBackdrop = document.getElementById('modalBackdrop');
-  const mgrList = document.getElementById('mgrList');
-  const closeModal = document.getElementById('closeModal');
-  const mgrQuickMajor = document.getElementById('mgrQuickMajor');
-  const mgrQuickAddMajor = document.getElementById('mgrQuickAddMajor');
-
-  const exportCSVBtn = document.getElementById('exportCSV');
-  const exportJSONBtn = document.getElementById('exportJSON');
-  const btnImport = document.getElementById('btnImport');
-  const clearAllBtn = document.getElementById('clearAll');
-
-  function saveProducts(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(products)); updateSummary(); }
-  function saveCategoryTree(){ localStorage.setItem(CATEGORY_KEY, JSON.stringify(categoryTree)); updateSummary(); populateFilterSelects(); populateMajorSelects(); renderCategoryManager(); }
-  function uid(){ return 'p_' + Date.now() + '_' + Math.floor(Math.random()*10000); }
-  function nowISO(){ return new Date().toISOString(); }
-  function esc(s){ return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-  function ensureCategoryDefaults(){
-    if(!categoryTree.length){
-      categoryTree = [
-        {name:'스킨케어', children:[ {name:'클렌징', children:['오일','폼','워터']}, {name:'토너/미스트', children:['토너','미스트']} ]},
-        {name:'메이크업', children:[ {name:'베이스', children:['프라이머','쿠션']}, {name:'색조', children:['립','섀도우']} ]},
-      ];
-      localStorage.setItem(CATEGORY_KEY, JSON.stringify(categoryTree));
-    }
+  // 🔹 기록 추가
+  function addRecord() {
+    const record = {
+      name: document.getElementById('name').value,
+      category: document.getElementById('category').value,
+      purchaseDate: document.getElementById('purchaseDate').value,
+      price: parseInt(document.getElementById('price').value),
+      rating: parseInt(document.getElementById('rating').value),
+      store: document.getElementById('store').value,
+      repurchase: document.getElementById('repurchase').value,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    
+    db.collection('cosmetics').add(record)
+      .then(() => {
+        alert("저장되었습니다!");
+        document.querySelectorAll('input').forEach(input => input.value = '');
+        loadRecords();
+      })
+      .catch(error => console.error("저장 오류:", error));
   }
 
-  // FORM select population with preservation
-  function populateMajorSelects(){
-    const prevMajor = majorEl.value;
-    const majors = categoryTree.map(c => c.name);
-    majorEl.innerHTML = `<option value="">— 선택 —</option>` + majors.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join('');
-    if (prevMajor && Array.from(majorEl.options).some(o => o.value === prevMajor)) majorEl.value = prevMajor; else majorEl.value = '';
-    updateMiddleOptions();
-  }
-  function updateMiddleOptions(){
-    const prevMiddle = middleEl.value;
-    const selMajor = majorEl.value;
-    const mj = categoryTree.find(c=>c.name===selMajor);
-    const mids = mj ? mj.children.map(x=>x.name) : [];
-    middleEl.innerHTML = '<option value="">— 선택 —</option>' + mids.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
-    if (prevMiddle && Array.from(middleEl.options).some(o=>o.value===prevMiddle)) middleEl.value = prevMiddle; else middleEl.value = '';
-    updateMinorOptions();
-  }
-  function updateMinorOptions(){
-    const prevMinor = minorEl.value;
-    const selMajor = majorEl.value;
-    const selMid = middleEl.value;
-    let minors = [];
-    if(selMajor){
-      const mj = categoryTree.find(c=>c.name===selMajor);
-      if(mj){
-        const md = mj.children.find(x=>x.name===selMid);
-        if(md) minors = md.children.slice();
-      }
-    } else {
-      const set = new Set();
-      categoryTree.forEach(mj => mj.children.forEach(md => md.children.forEach(mn => set.add(mn))));
-      minors = Array.from(set).sort();
-    }
-    minorEl.innerHTML = '<option value="">— 선택 —</option>' + minors.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
-    if (prevMinor && Array.from(minorEl.options).some(o=>o.value===prevMinor)) minorEl.value = prevMinor; else minorEl.value = '';
-  }
-
-  // FILTER select population (must always reflect categoryTree)
-  function populateFilterSelects(){
-    // remember previous values
-    const prevMaj = (filterMajor && filterMajor.value) || '';
-    const prevMid = (filterMiddle && filterMiddle.value) || '';
-    const prevMin = (filterMinor && filterMinor.value) || '';
-
-    const majors = categoryTree.map(c=>c.name);
-    if(filterMajor) filterMajor.innerHTML = `<option value="">모든 대분류</option>` + majors.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
-
-    // restore if possible
-    if(filterMajor){
-      if(prevMaj && Array.from(filterMajor.options).some(o=>o.value===prevMaj)) filterMajor.value = prevMaj; else filterMajor.value = '';
-    }
-
-    if(filterMiddle) updateFilterMiddleOptions();
-
-    // restore middle/ minor if possible
-    if(filterMiddle){
-      if(prevMid && Array.from(filterMiddle.options).some(o=>o.value===prevMid)) filterMiddle.value = prevMid; else filterMiddle.value = '';
-    }
-    if(filterMinor) updateFilterMinorOptions();
-    if(filterMinor){
-      if(prevMin && Array.from(filterMinor.options).some(o=>o.value===prevMin)) filterMinor.value = prevMin; else filterMinor.value = '';
-    }
-  }
-
-  function updateFilterMiddleOptions(){
-    if(!filterMajor || !filterMiddle) return;
-    const selMaj = filterMajor.value;
-    const mj = categoryTree.find(c=>c.name===selMaj);
-    const mids = mj ? mj.children.map(x=>x.name) : [];
-    filterMiddle.innerHTML = `<option value="">모든 중분류</option>` + mids.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
-    filterMiddle.value = '';
-    updateFilterMinorOptions();
-  }
-
-  function updateFilterMinorOptions(){
-    if(!filterMinor) return;
-    const selMaj = filterMajor ? filterMajor.value : '';
-    const selMid = filterMiddle ? filterMiddle.value : '';
-    let minors = [];
-    if(selMaj && selMid){
-      const mj = categoryTree.find(c=>c.name===selMaj);
-      if(mj){ const md = mj.children.find(x=>x.name===selMid); if(md) minors = md.children.slice(); }
-    } else if(selMaj && !selMid){
-      const mj = categoryTree.find(c=>c.name===selMaj);
-      if(mj){ const set = new Set(); mj.children.forEach(md => md.children.forEach(mn => set.add(mn))); minors = Array.from(set).sort(); }
-    } else {
-      const set = new Set(); categoryTree.forEach(mj => mj.children.forEach(md => md.children.forEach(mn => set.add(mn)))); minors = Array.from(set).sort();
-    }
-    filterMinor.innerHTML = `<option value="">모든 소분류</option>` + minors.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('');
-    filterMinor.value = '';
-  }
-
-  // ADD handlers (DOM ready이므로 직접 바인딩해도 안전)
-  if(addMajorBtn) addMajorBtn.addEventListener('click', ()=>{
-    const name = prompt('새 대분류 이름을 입력하세요') || '';
-    if(!name.trim()) return alert('이름을 입력하세요.');
-    if(categoryTree.find(c=>c.name === name.trim())) return alert('이미 존재합니다.');
-    categoryTree.push({name: name.trim(), children:[]});
-    saveCategoryTree();
-    alert('대분류 추가됨');
-  });
-
-  if(addMiddleBtn) addMiddleBtn.addEventListener('click', ()=>{
-    const major = majorEl.value;
-    if(!major) return alert('먼저 대분류를 선택하세요.');
-    const name = prompt(`대분류 "${major}" 아래에 추가할 중분류 이름을 입력하세요`) || '';
-    if(!name.trim()) return alert('이름을 입력하세요.');
-    const mj = categoryTree.find(c=>c.name === major);
-    if(!mj) return alert('선택한 대분류를 찾을 수 없습니다.');
-    if(mj.children.find(c=>c.name === name.trim())) return alert('이미 존재하는 중분류입니다.');
-    mj.children.push({name: name.trim(), children:[]});
-    saveCategoryTree();
-
-    // reflect immediately in form selects
-    populateMajorSelects();
-    updateMiddleOptions();
-    middleEl.value = name.trim();
-    updateMinorOptions();
-
-    alert('중분류 추가됨 — 자동으로 선택했습니다.');
-  });
-
-  if(addMinorBtn) addMinorBtn.addEventListener('click', ()=>{
-    const major = majorEl.value; const middle = middleEl.value;
-    if(!major || !middle) return alert('대분류와 중분류를 먼저 선택하세요.');
-    const name = prompt(`"${major} > ${middle}" 아래에 추가할 소분류 이름을 입력하세요`) || '';
-    if(!name.trim()) return alert('이름을 입력하세요.');
-    const mj = categoryTree.find(c=>c.name === major);
-    if(!mj) return alert('대분류를 찾을 수 없습니다.');
-    const md = mj.children.find(c=>c.name === middle);
-    if(!md) return alert('중분류를 찾을 수 없습니다.');
-    if(md.children.includes(name.trim())) return alert('이미 존재하는 소분류입니다.');
-    md.children.push(name.trim());
-    saveCategoryTree();
-
-    populateMajorSelects(); majorEl.value = major; updateMiddleOptions(); middleEl.value = middle; updateMinorOptions(); minorEl.value = name.trim();
-    alert('소분류 추가됨 — 자동으로 선택했습니다.');
-  });
-
-  // quick add
-  if(quickAddMajor) quickAddMajor.addEventListener('click', ()=>{
-    const name = quickMajor.value.trim(); if(!name) return alert('이름을 입력하세요.'); if(categoryTree.find(c=>c.name===name)) return alert('이미 존재합니다.'); categoryTree.push({name, children:[]}); saveCategoryTree(); populateMajorSelects(); quickMajor.value=''; alert('대분류 추가됨');
-  });
-
-  // modal controls
-  if(openCategoryMgr) openCategoryMgr.addEventListener('click', ()=>{ renderCategoryManager(); modalBackdrop.style.display='flex'; modalBackdrop.setAttribute('aria-hidden','false'); mgrQuickMajor.focus(); });
-  if(openCategoryMgr2) openCategoryMgr2.addEventListener('click', ()=>{ renderCategoryManager(); modalBackdrop.style.display='flex'; modalBackdrop.setAttribute('aria-hidden','false'); mgrQuickMajor.focus(); });
-  if(closeModal) closeModal.addEventListener('click', ()=>{ modalBackdrop.style.display='none'; modalBackdrop.setAttribute('aria-hidden','true'); populateMajorSelects(); render(); });
-  if(modalBackdrop) modalBackdrop.addEventListener('click', (e)=>{ if(e.target === modalBackdrop){ modalBackdrop.style.display='none'; modalBackdrop.setAttribute('aria-hidden','true'); populateMajorSelects(); render(); } });
-  if(mgrQuickAddMajor) mgrQuickAddMajor.addEventListener('click', ()=>{ const name = mgrQuickMajor.value.trim(); if(!name) return alert('이름을 입력하세요.'); if(categoryTree.find(c=>c.name===name)) return alert('이미 존재합니다.'); categoryTree.push({name, children:[]}); saveCategoryTree(); renderCategoryManager(); mgrQuickMajor.value=''; populateMajorSelects(); alert('대분류 추가됨'); });
-
-  function renderCategoryManager(){
-    if(!mgrList) return;
-    mgrList.innerHTML = '';
-    if(!categoryTree.length){ mgrList.textContent = '등록된 분류가 없습니다.'; return; }
-    categoryTree.forEach((mj, mi) => {
-      const majDiv = document.createElement('div'); majDiv.className='maj';
-      majDiv.innerHTML = `<strong>${esc(mj.name)}</strong>`;
-      const editMajBtn = document.createElement('button'); editMajBtn.className='tiny'; editMajBtn.textContent='수정';
-      const delMajBtn = document.createElement('button'); delMajBtn.className='tiny danger'; delMajBtn.textContent='삭제';
-      majDiv.appendChild(editMajBtn); majDiv.appendChild(delMajBtn);
-      mgrList.appendChild(majDiv);
-
-      editMajBtn.addEventListener('click', () => {
-        const newName = prompt(`"${mj.name}"의 새 이름을 입력하세요`, mj.name) || '';
-        if(!newName.trim()) return alert('이름이 비어있습니다.');
-        if(categoryTree.find(c=>c.name===newName.trim())) return alert('같은 이름의 대분류가 이미 존재합니다.');
-        const oldName = mj.name; mj.name = newName.trim();
-        products.forEach(p => { if(p.category && p.category.major === oldName){ p.category.major = mj.name; p._localUpdated = nowISO(); } });
-        saveCategoryTree(); saveProducts(); populateMajorSelects(); render(); renderCategoryManager();
-      });
-
-      delMajBtn.addEventListener('click', () => { handleDeleteMajor(mj.name, mi); });
-
-      mj.children.forEach((md, mdi) => {
-        const midDiv = document.createElement('div'); midDiv.className='mid'; midDiv.style.marginLeft='12px';
-        midDiv.innerHTML = `<span>${esc(md.name)}</span>`;
-        const editMidBtn = document.createElement('button'); editMidBtn.className='tiny'; editMidBtn.textContent='수정';
-        const delMidBtn = document.createElement('button'); delMidBtn.className='tiny danger'; delMidBtn.textContent='삭제';
-        midDiv.appendChild(editMidBtn); midDiv.appendChild(delMidBtn);
-        mgrList.appendChild(midDiv);
-
-        editMidBtn.addEventListener('click', () => {
-          const newName = prompt(`"${mj.name} > ${md.name}"의 새 이름을 입력하세요`, md.name) || '';
-          if(!newName.trim()) return alert('이름이 비어있습니다.');
-          if(mj.children.find(c=>c.name===newName.trim())) return alert('같은 이름의 중분류가 이미 존재합니다.');
-          const oldName = md.name; md.name = newName.trim();
-          products.forEach(p => { if(p.category && p.category.major === mj.name && p.category.middle === oldName){ p.category.middle = md.name; p._localUpdated = nowISO(); } });
-          saveCategoryTree(); saveProducts(); populateMajorSelects(); render(); renderCategoryManager();
-        });
-
-        delMidBtn.addEventListener('click', () => { handleDeleteMiddle(mj.name, md.name, mdi); });
-
-        md.children.forEach((mn, mni) => {
-          const minDiv = document.createElement('div'); minDiv.className='min'; minDiv.style.marginLeft='28px';
-          minDiv.innerHTML = `<span>${esc(mn)}</span>`;
-          const editMinBtn = document.createElement('button'); editMinBtn.className='tiny'; editMinBtn.textContent='수정';
-          const delMinBtn = document.createElement('button'); delMinBtn.className='tiny danger'; delMinBtn.textContent='삭제';
-          minDiv.appendChild(editMinBtn); minDiv.appendChild(delMinBtn);
-          mgrList.appendChild(minDiv);
-
-          editMinBtn.addEventListener('click', () => {
-            const newName = prompt(`"${mj.name} > ${md.name} > ${mn}"의 새 이름을 입력하세요`, mn) || '';
-            if(!newName.trim()) return alert('이름이 비어있습니다.');
-            if(md.children.includes(newName.trim())) return alert('같은 이름의 소분류가 이미 존재합니다.');
-            md.children[mni] = newName.trim();
-            products.forEach(p => { if(p.category && p.category.major === mj.name && p.category.middle === md.name && p.category.minor === mn){ p.category.minor = newName.trim(); p._localUpdated = nowISO(); } });
-            saveCategoryTree(); saveProducts(); populateMajorSelects(); render(); renderCategoryManager();
-          });
-
-          delMinBtn.addEventListener('click', () => { handleDeleteMinor(mj.name, md.name, mn, mni); });
+  // 🔹 기록 불러오기
+  function loadRecords() {
+    const container = document.getElementById('records');
+    container.innerHTML = '';
+    db.collection('cosmetics').orderBy('timestamp', 'desc').get()
+      .then(snapshot => {
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const div = document.createElement('div');
+          div.className = 'record';
+          div.innerHTML = `
+            <strong>${data.name}</strong> (${data.category})<br>
+            구매일: ${data.purchaseDate}, 가격: ${data.price}원, 평점: ${data.rating}★<br>
+            구매처: ${data.store}, 재구매 의사: ${data.repurchase}
+          `;
+          container.appendChild(div);
         });
       });
-    });
   }
 
-  // delete handlers
-  function findAffectedProducts(level, major, middle, minor){
-    return products.filter(p => { if(!p.category) return false; if(level === 'major') return p.category.major === major; if(level === 'middle') return p.category.major === major && p.category.middle === middle; if(level === 'minor') return p.category.major === major && p.category.middle === middle && p.category.minor === minor; return false; });
-  }
-
-  function promptForReassignTarget(level){
-    if(level === 'major'){ const target = prompt('재할당할 대분류 이름을 입력하세요') || ''; return target.trim() || null; }
-    else if(level === 'middle'){ const tmaj = prompt('재할당할 대상의 대분류 이름을 입력하세요') || ''; if(!tmaj.trim()) return null; const tmid = prompt('대분류 "'+tmaj+'"의 중분류 이름을 입력하세요') || ''; if(!tmid.trim()) return null; return {major: tmaj.trim(), middle: tmid.trim()}; }
-    else if(level === 'minor'){ const tmaj = prompt('재할당할 대상의 대분류 이름을 입력하세요') || ''; if(!tmaj.trim()) return null; const tmid = prompt('재할당할 대상의 중분류 이름을 입력하세요') || ''; if(!tmid.trim()) return null; const tmin = prompt('재할당할 대상의 소분류 이름을 입력하세요') || ''; if(!tmin.trim()) return null; return {major: tmaj.trim(), middle: tmid.trim(), minor: tmin.trim()}; }
-    return null;
-  }
-
-  function handleDeleteMajor(majorName, mi){
-    const affected = findAffectedProducts('major', majorName);
-    if(affected.length){
-      const choice = prompt(`대분류 "${majorName}"을(를) 사용하는 제품이 ${affected.length}건 있습니다.\n옵션: 1 = 재할당, 2 = 분류 제거(제품의 대/중/소를 비움), 아무키 = 취소`);
-      if(choice === '1'){ const target = promptForReassignTarget('major'); if(!target) return alert('취소'); const tgt = categoryTree.find(c=>c.name===target); if(!tgt) return alert('지정한 대상 대분류가 존재하지 않습니다.'); affected.forEach(p => { p.category.major = target; p._localUpdated = nowISO(); }); }
-      else if(choice === '2'){ affected.forEach(p => { p.category = {major:'', middle:'', minor:''}; p._localUpdated = nowISO(); }); }
-      else return;
-    }
-    categoryTree.splice(mi,1);
-    saveCategoryTree(); saveProducts(); populateMajorSelects(); render(); renderCategoryManager(); alert('삭제 완료');
-  }
-
-  function handleDeleteMiddle(majorName, middleName, mdi){
-    const affected = findAffectedProducts('middle', majorName, middleName);
-    if(affected.length){
-      const choice = prompt(`중분류 "${majorName} > ${middleName}"을(를) 사용하는 제품이 ${affected.length}건 있습니다.\n옵션: 1 = 재할당, 2 = 분류 제거(제품의 중/소를 비움), 아무키 = 취소`);
-      if(choice === '1'){ const target = promptForReassignTarget('middle'); if(!target) return alert('취소'); const mj = categoryTree.find(c=>c.name===target.major); if(!mj) return alert('지정한 대분류 없음'); const md = mj.children.find(c=>c.name===target.middle); if(!md) return alert('지정한 중분류 없음'); affected.forEach(p => { p.category.major = target.major; p.category.middle = target.middle; p.category.minor = ''; p._localUpdated = nowISO(); }); }
-      else if(choice === '2'){ affected.forEach(p => { p.category.middle = ''; p.category.minor = ''; p._localUpdated = nowISO(); }); }
-      else return;
-    }
-    const mj = categoryTree.find(c=>c.name===majorName); if(!mj) return; const idx = mj.children.findIndex(x=>x.name===middleName); if(idx !== -1) mj.children.splice(idx,1);
-    saveCategoryTree(); saveProducts(); populateMajorSelects(); render(); renderCategoryManager(); alert('삭제 완료');
-  }
-
-  function handleDeleteMinor(majorName, middleName, minorName, mni){
-    const affected = findAffectedProducts('minor', majorName, middleName, minorName);
-    if(affected.length){
-      const choice = prompt(`소분류 "${majorName} > ${middleName} > ${minorName}"을(를) 사용하는 제품이 ${affected.length}건 있습니다.\n옵션: 1 = 재할당, 2 = 분류 제거(제품의 소분류만 비움), 아무키 = 취소`);
-      if(choice === '1'){ const target = promptForReassignTarget('minor'); if(!target) return alert('취소'); const mj = categoryTree.find(c=>c.name===target.major); if(!mj) return alert('대분류 없음'); const md = mj.children.find(c=>c.name===target.middle); if(!md) return alert('중분류 없음'); if(!md.children.includes(target.minor)) return alert('소분류 없음'); affected.forEach(p => { p.category.major = target.major; p.category.middle = target.middle; p.category.minor = target.minor; p._localUpdated = nowISO(); }); }
-      else if(choice === '2'){ affected.forEach(p => { p.category.minor = ''; p._localUpdated = nowISO(); }); }
-      else return;
-    }
-    const mj = categoryTree.find(c=>c.name===majorName); if(!mj) return; const md = mj.children.find(x=>x.name===middleName); if(!md) return; const idx = md.children.indexOf(minorName); if(idx !== -1) md.children.splice(idx,1);
-    saveCategoryTree(); saveProducts(); populateMajorSelects(); render(); renderCategoryManager(); alert('삭제 완료');
-  }
-
-  // render products table (applies search + filter)
-  function render(){
-    const q = (searchEl && searchEl.value || '').trim().toLowerCase();
-    const fMaj = filterMajor ? filterMajor.value : '';
-    const fMid = filterMiddle ? filterMiddle.value : '';
-    const fMin = filterMinor ? filterMinor.value : '';
-    const list = products.filter(p => {
-      if(q){ const hay = `${p.name} ${p.seller} ${p.notes} ${p.category?.major||''} ${p.category?.middle||''} ${p.category?.minor||''}`.toLowerCase(); if(!hay.includes(q)) return false; }
-      if(fMaj && (p.category?.major !== fMaj)) return false;
-      if(fMid && (p.category?.middle !== fMid)) return false;
-      if(fMin && (p.category?.minor !== fMin)) return false;
-      return true;
-    });
-
-    if(productTableBody) {
-      productTableBody.innerHTML = list.map(p => `
-      <tr data-id="${p.id}">
-        <td>${esc(p.name)}</td>
-        <td>${esc(p.category?.major||'')} / ${esc(p.category?.middle||'')} / ${esc(p.category?.minor||'')}</td>
-        <td>${esc(p.purchaseDate||'')}</td>
-        <td>${p.price?Number(p.price).toLocaleString() : ''}</td>
-        <td>${esc(p.rating||'')}</td>
-        <td>${esc(p.seller||'')}</td>
-        <td>${p.repurchase==='yes'?'예':p.repurchase==='maybe'?'고민':p.repurchase==='no'?'아니오':''}</td>
-        <td>${p.image?`<img class="thumb" src="${p.image}" alt="img">`:''}</td>
-        <td>
-          <button data-action="edit" class="ghost small">수정</button>
-          <button data-action="delete" class="ghost small">삭제</button>
-        </td>
-      </tr>
-    `).join('');
-    }
-    updateSummary();
-  }
-
-  function updateSummary(){ if(countEl) countEl.textContent = products.length; let n=0; categoryTree.forEach(mj=> n += 1 + mj.children.length + mj.children.reduce((s,md)=> s + md.children.length,0)); if(catCountEl) catCountEl.textContent = n; }
-
-  async function readImageAsDataURL(file){ return await new Promise((res,rej)=>{ if(!file) return res(null); const fr = new FileReader(); fr.onload = ()=> res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); }); }
-
-  // save product
-  if(saveBtn) saveBtn.addEventListener('click', async ()=>{
-    const name = nameEl.value.trim(); if(!name) return alert('제품명을 입력하세요.');
-    const imgFile = imageEl.files && imageEl.files[0]; let imgData = null;
-    if(imgFile){ if(imgFile.size > 1024*2000){ if(!confirm('이미지 파일이 큽니다 (2MB 이상). 계속 저장하시겠습니까?')) return; } imgData = await readImageAsDataURL(imgFile); }
-    const hiddenId = document.getElementById('id') ? document.getElementById('id').value : '';
-    const item = { id: hiddenId || uid(), name, category: {major: majorEl.value || '', middle: middleEl.value || '', minor: minorEl.value || ''}, purchaseDate: purchaseDateEl.value || '', price: priceEl.value ? Number(priceEl.value) : '', rating: ratingEl.value || '', seller: sellerEl.value.trim(), repurchase: repurchaseEl.value || '', notes: notesEl.value.trim(), image: imgData || (products.find(p=>p.id === hiddenId) || {}).image || null, _localUpdated: nowISO() };
-    if(hiddenId){ products = products.map(p => p.id === item.id ? Object.assign({}, p, item) : p); } else products.push(item);
-    saveProducts(); render(); resetForm(); if(imageEl) imageEl.value = '';
-  });
-
-  // 안전한 resetForm: form.reset 존재하지 않아도 동작
-  if(resetBtn) resetBtn.addEventListener('click', resetForm);
-  function resetForm(){
-    const hid = document.getElementById('id'); if(hid) hid.remove();
-
-    const formEl = document.getElementById('productForm');
-    if(formEl && typeof formEl.reset === 'function'){
-      try { formEl.reset(); } catch(e) { /* ignore */ }
-    } else {
-      // 수동 초기화 (존재하는 필드만)
-      ['name','majorSelect','middleSelect','minorSelect','purchaseDate','price','rating','seller','repurchase','notes','image','search'].forEach(id=>{
-        const el = document.getElementById(id);
-        if(!el) return;
-        const tag = el.tagName && el.tagName.toLowerCase();
-        if(tag === 'input' || tag === 'textarea') el.value = '';
-        else if(tag === 'select') el.selectedIndex = 0;
-        else if(el.type === 'file') el.value = '';
-      });
-    }
-
-    if(saveBtn) saveBtn.textContent = '추가 / 저장';
-  }
-
-  // table edit/delete
-  if(productTableBody) productTableBody.addEventListener('click', (e)=>{
-    const btn = e.target.closest('button'); if(!btn) return; const tr = e.target.closest('tr'); if(!tr) return; const id = tr.dataset.id; const action = btn.dataset.action;
-    if(action === 'delete'){ if(!confirm('삭제하시겠습니까?')) return; products = products.filter(p => p.id !== id); saveProducts(); render(); }
-    else if(action === 'edit'){ const p = products.find(x=>x.id === id); if(!p) return; if(!document.getElementById('id')){ const hid = document.createElement('input'); hid.type='hidden'; hid.id='id'; document.getElementById('productForm').appendChild(hid); } document.getElementById('id').value = p.id; nameEl.value = p.name; majorEl.value = p.category?.major || ''; populateMajorSelects(); updateMiddleOptions(); middleEl.value = p.category?.middle || ''; updateMinorOptions(); minorEl.value = p.category?.minor || ''; purchaseDateEl.value = p.purchaseDate || ''; priceEl.value = p.price || ''; ratingEl.value = p.rating || ''; sellerEl.value = p.seller || ''; repurchaseEl.value = p.repurchase || ''; notesEl.value = p.notes || ''; if(saveBtn) saveBtn.textContent = '저장'; window.scrollTo({top:0,behavior:'smooth'}); }
-  });
-
-  // CSV/JSON export/import
-  if(exportCSVBtn) exportCSVBtn.addEventListener('click', ()=>{ if(!products.length){ alert('저장된 항목이 없습니다.'); return; } const rows = [['제품명','대분류','중분류','소분류','구매일','가격','평점','구매처','재구매','메모','이미지']]; products.forEach(p => rows.push([p.name||'', p.category?.major||'', p.category?.middle||'', p.category?.minor||'', p.purchaseDate||'', p.price||'', p.rating||'', p.seller||'', p.repurchase||'', (p.notes||'').replace(/\r?\n/g,' '), p.image ? '있음' : ''])); const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n'); const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='products.csv'; a.click(); URL.revokeObjectURL(a.href); });
-
-  if(exportJSONBtn) exportJSONBtn.addEventListener('click', ()=>{ const blob = new Blob([JSON.stringify({products, categoryTree},null,2)], {type:'application/json'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download='products_with_categories.json'; a.click(); URL.revokeObjectURL(a.href); });
-
-  if(btnImport) btnImport.addEventListener('click', ()=> document.getElementById('importJSON').click());
-  const importInput = document.getElementById('importJSON');
-  if(importInput) importInput.addEventListener('change', (ev)=>{ const f = ev.target.files[0]; if(!f) return; const fr = new FileReader(); fr.onload = ()=>{ try{ const obj = JSON.parse(fr.result); let incomingProducts = []; if(Array.isArray(obj)) incomingProducts = obj; else if(obj.products) incomingProducts = obj.products; const map = new Map(products.map(p=>[p.id,p])); incomingProducts.forEach(item=>{ if(!item.id) item.id = uid(); const existing = map.get(item.id); if(!existing) map.set(item.id, item); else { const et = existing._localUpdated||''; const it = item._localUpdated||''; if(it >= et) map.set(item.id,item); } }); products = Array.from(map.values()); if(obj.categoryTree && Array.isArray(obj.categoryTree)){ categoryTree = obj.categoryTree; saveCategoryTree(); } saveProducts(); populateMajorSelects(); render(); alert('불러오기 완료'); } catch(err){ alert('파싱 오류: ' + err.message); } }; fr.readAsText(f); ev.target.value = ''; });
-
-  if(clearAllBtn) clearAllBtn.addEventListener('click', ()=>{ if(!confirm('모든 항목(제품 + 분류)을 로컬에서 삭제합니다. 진행할까요?')) return; products = []; categoryTree = []; saveProducts(); saveCategoryTree(); ensureCategoryDefaults(); populateMajorSelects(); populateFilterSelects(); render(); });
-
-  // filter events
-  if(filterMajor) filterMajor.addEventListener('change', ()=>{ updateFilterMiddleOptions(); updateFilterMinorOptions(); render(); });
-  if(filterMiddle) filterMiddle.addEventListener('change', ()=>{ updateFilterMinorOptions(); render(); });
-  if(filterMinor) filterMinor.addEventListener('change', ()=> render());
-  if(clearFilterBtn) clearFilterBtn.addEventListener('click', ()=>{ if(filterMajor) filterMajor.value = ''; if(filterMajor) updateFilterMiddleOptions(); if(filterMiddle) filterMiddle.value = ''; if(filterMiddle) updateFilterMinorOptions(); if(filterMinor) filterMinor.value = ''; render(); });
-
-  if(searchEl) searchEl.addEventListener('input', render);
-
-  // init
-  ensureCategoryDefaults();
-  populateMajorSelects();
-  populateFilterSelects();
-  render();
-  updateSummary();
-  if(majorEl) majorEl.addEventListener('change', updateMiddleOptions);
-  if(middleEl) middleEl.addEventListener('change', updateMinorOptions);
-
-}); // end DOMContentLoaded
+  // 🔹 페이지 로드 시 기록 표시
+  loadRecords();
 </script>
-
-<input id="importJSON" type="file" accept="application/json" style="display:none" />
 </body>
 </html>
